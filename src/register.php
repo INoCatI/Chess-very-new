@@ -39,7 +39,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 $updateStmt->close();
             } else {
-                echo "Ошибка при создании профиля: " . $stmtProfile->error;
+            header("Location: /pages/registration.html");
+            exit();
             }
 
             $stmtProfile->close(); 
