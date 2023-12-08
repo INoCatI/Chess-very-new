@@ -3,7 +3,7 @@
 class GameState {
     const PROPERTY_NAMES = array(
         'with_ai', 'position', 'current_player_color', 'enable_castling_white_king', 'enable_castling_black_king', 'enable_castling_white_queen', 'enable_castling_black_queen',
-        'crossed_field', 'non_action_semimove_counter', 'move_number', 'human_color', 'prev_move_from', 'prev_move_to', 'text_state'
+        'crossed_field', 'non_action_semimove_counter', 'move_number', 'human_color', 'prev_move_from', 'prev_move_to', 'text_state', 'whiteID', 'blackID'
     );
 
     public $with_ai = true; // Новое значение
@@ -21,6 +21,8 @@ class GameState {
     public $prev_move_from = null; 
     public $prev_move_to = null; 
     public $text_state = null; 
+    public $whiteID = null; 
+    public $blackID = null; 
 
     public $figures = null; 
 

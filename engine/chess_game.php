@@ -8,7 +8,6 @@ require_once('figure.php');
 require_once('move_generator.php');
 require_once('board_position.php');
 require_once('computer_ai.php');
-
 class ChessGame {
     private $storage;
     private $game_state;
@@ -25,7 +24,7 @@ class ChessGame {
         $this->storage->saveGameState($this->game_state);
     }
 
-    public function createNewGame($human_color) {
+    public function createNewGame($human_color, $whiteID, $blackID) {
         $this->game_state = new GameState();
         $this->game_state->position = $this->getInitPosition();
         $this->game_state->current_player_color = COLOR_WHITE; 
@@ -39,6 +38,8 @@ class ChessGame {
         // При создании новой игры место значения начального цвета можно передать 'offline', чтобы указать что играть будем не с компьютером
         $this->game_state->with_ai = ($human_color == 'offline')? false : true; 
         $this->game_state->human_color = ($human_color == 'b' ? COLOR_BLACK : COLOR_WHITE);
+        $this->game_state->whiteID =$whiteID;
+        $this->game_state->blackID =$blackID;
         $this->game_state->prev_move_from = null;
         $this->game_state->prev_move_to = null;
         $this->game_state->text_state = 'Новая партия создана. '.($this->game_state->human_color == $this->game_state->current_player_color ? 'Ваш ход' : 'Ждите мой ход');
@@ -107,6 +108,8 @@ class ChessGame {
             'prev_move_from' => $this->game_state->prev_move_from,
             'prev_move_to' => $this->game_state->prev_move_to,
             'text_state' => $this->game_state->text_state,
+            'blackID' =>$this->game_state->blackID,
+            'whiteID' =>$this->game_state->whiteID,
             'available_moves' => $is_human_move ? $this->generateAvailableMoves() : array()
         );
     }
@@ -122,8 +125,15 @@ class ChessGame {
         if (!$move) {
             if ($this->isKingUnderAttack($this->game_state->current_player_color)) {
                 $text_state = 'Мат. Вы выиграли!';
+                if($this->game_state->current_player_color == COLOR_BLACK){
+                    $this->saveToBD("w");
+                }
+                else{
+                    $this->saveToBD("b");
+                }
             } else {
                 $text_state = 'Пат. Ничья.';
+                $this->saveToBD("n");
             }
             $this->game_state->text_state = $text_state;
             $this->saveGame();
@@ -140,8 +150,15 @@ class ChessGame {
         if (count($available_moves) === 0) {
             if ($this->isKingUnderAttack($this->game_state->current_player_color)) {
                 $text_state = 'Мат. Компьютер выиграл';
+                if($this->game_state->current_player_color == COLOR_BLACK){
+                    $this->saveToBD("w");
+                }
+                else{
+                    $this->saveToBD("b");
+                }
             } else {
                 $text_state = 'Пат. Ничья.';
+                $this->saveToBD("n");
             }
             $this->game_state->text_state = $text_state;
             $this->saveGame();
@@ -154,8 +171,15 @@ class ChessGame {
         if (!$move) {
             if ($this->isKingUnderAttack($this->game_state->current_player_color)) {
                 $text_state = 'Мат.';
+                if($this->game_state->current_player_color == COLOR_BLACK){
+                    $this->saveToBD("w");
+                }
+                else{
+                    $this->saveToBD("b");
+                }
             } else {
                 $text_state = 'Пат. Ничья.';
+                $this->saveToBD("n");
             }
             $this->game_state->text_state = $text_state;
             $this->saveGame();
@@ -166,5 +190,29 @@ class ChessGame {
         $board_position = new BoardPosition();
         $board_position->setPosition($this->game_state->position);
         return $board_position->isKingUnderAttack($color);
+    }
+
+    protected function saveToBD($result){
+        require_once("./src/connection.php");
+        $whitePlayerProfileID =$this->game_state->whiteID;
+        $blackPlayerProfileID =$this->game_state->blackID;
+        $movesNumber =$this->game_state->move_number;
+        // SQL-запрос для вставки результата партии в таблицу Сonsignments
+        $stmt = $conn->prepare("INSERT INTO Consignments (white, black, result, moves_number) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("iisi", $whitePlayerProfileID, $blackPlayerProfileID, $result, $movesNumber);
+        $stmt->execute();
+
+        $whiteRatingChange = ($result === 'w') ? 30 : -30;
+        $blackRatingChange = ($result === 'b') ? 30 : -30;
+        if ($whitePlayerProfileID !== null) {
+            $sqlWhite = "UPDATE Profiles SET rating = rating + $whiteRatingChange WHERE ID = $whitePlayerProfileID";
+
+            $conn->query($sqlWhite);
+        }
+        if ($blackPlayerProfileID !== null) {
+            $sqlBlack = "UPDATE Profiles SET rating = rating + $blackRatingChange WHERE ID = $blackPlayerProfileID";
+                
+            $conn->query($sqlBlack);
+        }
     }
 }
